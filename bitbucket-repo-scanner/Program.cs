@@ -1,15 +1,16 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
-using System.Text.RegularExpressions;
-
+using OfficeOpenXml;
 
 namespace BitbucketScanner
 {
     class Program
     {
         private static string logFilePath = "scan_results.log";
+        private static string excelFilePath = "C:/Users/deoc/Coding-Projects/PD-bitbucket-migrations/scan_results.xlsx";
+        private static List<string> applicableExtensions = new List<string> { ".cs", ".csproj", ".sql", ".config". ".xml", ".project" };
 
         static void Main()
         {
@@ -18,13 +19,16 @@ namespace BitbucketScanner
             {
                 try
                 {
-                    // Specify the Bitbucket repository path
-                    string repositoryPath = "C:\\Path\\To\\BitbucketRepository";
+                    // Specify the directory to be scanned
+                    string directoryPath = @"C:\Users\deoc\Coding-Projects\PD-bitbucket-migration\formfox";
 
-                    // Scan the repository
-                    ScanRepository(repositoryPath, logger);
+                    // Scan the directory for exposed secrets
+                    var scanResults = ScanDirectory(directoryPath, logger);
 
-                    Console.WriteLine("Scanning complete. Check the log file for results.");
+                    // Export scan results to an Excel file
+                    ExportToExcel(scanResults, excelFilePath);
+
+                    Console.WriteLine($"Scanning complete. Scan results exported to: {excelFilePath}");
                 }
                 catch (Exception ex)
                 {
@@ -34,10 +38,13 @@ namespace BitbucketScanner
             }
         }
 
-        static void ScanRepository(string repositoryPath, Logger logger)
+        static List<ScanResult> ScanDirectory(string directoryPath, Logger logger)
         {
-            // Get all files recursively in the repository
-            var files = Directory.GetFiles(repositoryPath, "*.*", SearchOption.AllDirectories);
+            List<ScanResult> scanResults = new List<ScanResult>();
+
+            // Get all files recursively in the directory with applicable extensions
+            var files = Directory.GetFiles(directoryPath, "*.*", SearchOption.AllDirectories)
+                .Where(file => applicableExtensions.Contains(Path.GetExtension(file)));
 
             foreach (var file in files)
             {
@@ -46,22 +53,29 @@ namespace BitbucketScanner
                     // Read the contents of the file
                     var lines = File.ReadAllLines(file);
 
-                    // Scan each line for sensitive information
+                    // Scan each line for exposed secrets
                     for (int lineNumber = 0; lineNumber < lines.Length; lineNumber++)
                     {
                         var line = lines[lineNumber];
 
-                        // Check for usernames
-                        if (ContainsUsername(line))
-                            logger.LogSensitiveInfo(file, "Username", line, lineNumber + 1);
+                        // Check for exposed secrets
+                        if (ContainsExposedSecret(line))
+                        {
+                            var username = ExtractUsername(line);
+                            var password = ExtractPassword(line);
 
-                        // Check for passwords
-                        if (ContainsPassword(line))
-                            logger.LogSensitiveInfo(file, "Password", line, lineNumber + 1);
+                            var scanResult = new ScanResult
+                            {
+                                FileName = file,
+                                LineNumber = lineNumber + 1,
+                                Username = username,
+                                Password = password
+                            };
 
-                        // Check for API keys
-                        if (ContainsApiKey(line))
-                            logger.LogSensitiveInfo(file, "API Key", line, lineNumber + 1);
+                            scanResults.Add(scanResult);
+
+                            logger.LogSensitiveInfo(file, "Exposed Secret", line, lineNumber + 1);
+                        }
                     }
                 }
                 catch (Exception ex)
@@ -69,35 +83,77 @@ namespace BitbucketScanner
                     logger.LogError($"Error processing file '{file}': {ex.Message}");
                 }
             }
+
+            return scanResults;
         }
 
-        static bool ContainsUsername(string line)
+        static bool ContainsExposedSecret(string line)
         {
-            // Check if the line contains the word "username" (case-insensitive)
-            if (line.IndexOf("username", StringComparison.OrdinalIgnoreCase) >= 0)
-                return true;
-
-            // Add any additional logic to identify plain text usernames
-            // Return true if a username is found, false otherwise
-            return false;
+            // Check for exposed secrets
+            // Modify this method based on the patterns or criteria for exposed secrets you want to detect
+            // Return true if an exposed secret is found, false otherwise
+            return line.Contains("password") || line.Contains("api_key");
         }
 
-        static bool ContainsPassword(string line)
+        static string ExtractUsername(string line)
         {
-            // Check if the line contains the word "password" (case-insensitive)
-            if (line.IndexOf("password", StringComparison.OrdinalIgnoreCase) >= 0)
-                return true;
+            // Extract the username from the line
+            // Modify this method based on the patterns or criteria for extracting usernames
+            // Return the extracted username
 
-            // Add any additional logic to identify plain text passwords
-            // Return true if a password is found, false otherwise
-            return false;
+            // Example: Extracting username between "Username:" and "Password:"
+            int usernameStartIndex = line.IndexOf("Username:") + 9;
+            int usernameEndIndex = line.IndexOf("Password:");
+            if (usernameStartIndex >= 0 && usernameEndIndex >= 0)
+            {
+                return line.Substring(usernameStartIndex, usernameEndIndex - usernameStartIndex).Trim();
+            }
+
+            return string.Empty;
         }
 
-        static bool ContainsApiKey(string line)
+        static string ExtractPassword(string line)
         {
-            // Use a regular expression to check for standard API key format
-            string apiKeyPattern = @"^[A-Za-z0-9-_]{16,}$";
-            return Regex.IsMatch(line, apiKeyPattern);
+            // Extract the password from the line
+            // Modify this method based on the patterns or criteria for extracting passwords
+            // Return the extracted password
+
+            // Example: Extracting password between "Password:" and the end of the line
+            int passwordStartIndex = line.IndexOf("Password:") + 9;
+            if (passwordStartIndex >= 0 && passwordStartIndex < line.Length)
+            {
+                return line.Substring(passwordStartIndex).Trim();
+            }
+
+            return string.Empty;
+        }
+
+        static void ExportToExcel(List<ScanResult> scanResults, string filePath)
+        {
+            using (var package = new ExcelPackage())
+            {
+                var worksheet = package.Workbook.Worksheets.Add("Scan Results");
+
+                // Set headings
+                worksheet.Cells[1, 1].Value = "Filename";
+                worksheet.Cells[1, 2].Value = "Line number";
+                worksheet.Cells[1, 3].Value = "Username";
+                worksheet.Cells[1, 4].Value = "Password";
+
+                // Write scan results
+                for (int i = 0; i < scanResults.Count; i++)
+                {
+                    var result = scanResults[i];
+                    worksheet.Cells[i + 2, 1].Value = result.FileName;
+                    worksheet.Cells[i + 2, 2].Value = result.LineNumber;
+                    worksheet.Cells[i + 2, 3].Value = result.Username;
+                    worksheet.Cells[i + 2, 4].Value = result.Password;
+                }
+
+                // Save Excel file
+                FileInfo excelFile = new FileInfo(filePath);
+                package.SaveAs(excelFile);
+            }
         }
     }
 
@@ -128,5 +184,13 @@ namespace BitbucketScanner
         {
             writer.Dispose();
         }
+    }
+
+    class ScanResult
+    {
+        public string FileName { get; set; }
+        public int LineNumber { get; set; }
+        public string Username { get; set; }
+        public string Password { get; set; }
     }
 }
