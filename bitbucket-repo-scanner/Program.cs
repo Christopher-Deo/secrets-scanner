@@ -2,6 +2,8 @@
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Text.RegularExpressions;
+
 
 namespace BitbucketScanner
 {
@@ -71,23 +73,31 @@ namespace BitbucketScanner
 
         static bool ContainsUsername(string line)
         {
-            // Add your logic to check for usernames
-            // For example, you could use regular expressions or custom validation rules
-            return line.Contains("username");
+            // Check if the line contains the word "username" (case-insensitive)
+            if (line.IndexOf("username", StringComparison.OrdinalIgnoreCase) >= 0)
+                return true;
+
+            // Add any additional logic to identify plain text usernames
+            // Return true if a username is found, false otherwise
+            return false;
         }
 
         static bool ContainsPassword(string line)
         {
-            // Add your logic to check for passwords
-            // For example, you could use regular expressions or custom validation rules
-            return line.Contains("password");
+            // Check if the line contains the word "password" (case-insensitive)
+            if (line.IndexOf("password", StringComparison.OrdinalIgnoreCase) >= 0)
+                return true;
+
+            // Add any additional logic to identify plain text passwords
+            // Return true if a password is found, false otherwise
+            return false;
         }
 
         static bool ContainsApiKey(string line)
         {
-            // Add your logic to check for API keys
-            // For example, you could use regular expressions or custom validation rules
-            return line.Contains("api_key");
+            // Use a regular expression to check for standard API key format
+            string apiKeyPattern = @"^[A-Za-z0-9-_]{16,}$";
+            return Regex.IsMatch(line, apiKeyPattern);
         }
     }
 
