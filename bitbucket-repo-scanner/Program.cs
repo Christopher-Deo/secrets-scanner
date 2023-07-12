@@ -10,7 +10,7 @@ namespace BitbucketScanner
     {
         private static string logFilePath = "scan_results.log";
         private static string excelFilePath = "C:/Users/deoc/Coding-Projects/PD-bitbucket-migrations/scan_results.xlsx";
-        private static List<string> applicableExtensions = new List<string> { ".cs", ".csproj", ".sql", ".config". ".xml", ".project" };
+        private static List<string> applicableExtensions = new List<string> { ".cs", ".csproj", ".sql", ".config", ".xml", ".project" };
 
         static void Main()
         {
@@ -20,7 +20,7 @@ namespace BitbucketScanner
                 try
                 {
                     // Specify the directory to be scanned
-                    string directoryPath = @"C:\Users\deoc\Coding-Projects\PD-bitbucket-migration\formfox";
+                    string directoryPath = @"C:\Users\deoc\Coding-Projects\PD-bitbucket-migration\formfox\";
 
                     // Scan the directory for exposed secrets
                     var scanResults = ScanDirectory(directoryPath, logger);
