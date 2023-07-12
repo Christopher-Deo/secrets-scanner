@@ -128,34 +128,33 @@ namespace BitbucketScanner
             return string.Empty;
         }
 
-        static void ExportToExcel(List<ScanResult> scanResults, string filePath)
+       static void ExportToExcel(List<ScanResult> scanResults, string filePath)
+    {
+        using (var workbook = new XLWorkbook())
         {
-            using (var package = new ExcelPackage())
+            var worksheet = workbook.Worksheets.Add("Scan Results");
+
+            // Set headings
+            worksheet.Cell(1, 1).Value = "Filename";
+            worksheet.Cell(1, 2).Value = "Line number";
+            worksheet.Cell(1, 3).Value = "Username";
+            worksheet.Cell(1, 4).Value = "Password";
+
+            // Write scan results
+            for (int i = 0; i < scanResults.Count; i++)
             {
-                var worksheet = package.Workbook.Worksheets.Add("Scan Results");
-
-                // Set headings
-                worksheet.Cells[1, 1].Value = "Filename";
-                worksheet.Cells[1, 2].Value = "Line number";
-                worksheet.Cells[1, 3].Value = "Username";
-                worksheet.Cells[1, 4].Value = "Password";
-
-                // Write scan results
-                for (int i = 0; i < scanResults.Count; i++)
-                {
-                    var result = scanResults[i];
-                    worksheet.Cells[i + 2, 1].Value = result.FileName;
-                    worksheet.Cells[i + 2, 2].Value = result.LineNumber;
-                    worksheet.Cells[i + 2, 3].Value = result.Username;
-                    worksheet.Cells[i + 2, 4].Value = result.Password;
-                }
-
-                // Save Excel file
-                FileInfo excelFile = new FileInfo(filePath);
-                package.SaveAs(excelFile);
+                var result = scanResults[i];
+                worksheet.Cell(i + 2, 1).Value = result.FileName;
+                worksheet.Cell(i + 2, 2).Value = result.LineNumber;
+                worksheet.Cell(i + 2, 3).Value = result.Username;
+                worksheet.Cell(i + 2, 4).Value = result.Password;
             }
+
+            // Save Excel file
+            workbook.SaveAs(filePath);
         }
     }
+    
 
     class Logger : IDisposable
     {
